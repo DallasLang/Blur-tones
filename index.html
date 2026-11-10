@@ -55,7 +55,8 @@
   .qs:active{background:#ffffff44}
   .qs:disabled{opacity:.3}
   .bl{bottom:20px;left:16px}
-  .bl .fb.icon{width:44px;height:44px} .br{bottom:20px;right:16px}
+  .bl .fb.icon{width:44px;height:44px}
+  #rotBtn.back svg{transform:scaleX(-1)} .br{bottom:20px;right:16px}
   .fb.on{background:#fff;color:#000}
   .gest{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:6;pointer-events:none;color:#fffc;font-size:12px;background:#0008;padding:5px 10px;border-radius:999px;transition:opacity .4s;white-space:nowrap}
 
@@ -130,7 +131,7 @@
 <div class="gest" id="gest" hidden>Drag to pan · pinch or double-tap to zoom</div>
 
 <div class="fl bl" id="cmpWrap" hidden>
-  <button class="fb icon" id="rotBtn" aria-label="Rotate 90 degrees" title="Rotate">
+  <button class="fb icon" id="rotBtn" aria-label="Switch to landscape" title="Landscape">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>
   </button>
   <button class="fb" id="cmp" aria-label="Hold to see original">
@@ -243,7 +244,7 @@ function load(f) {
     ctx.drawImage(im, 0, 0, W, H);
     base = ctx.getImageData(0, 0, W, H);
     URL.revokeObjectURL(url);
-    cacheKey = ''; rot = 0; layoutUI();
+    cacheKey = ''; rot = 0; layoutUI(); $('rotBtn').classList.remove('back');
     $('empty').hidden = true; cv.hidden = false; $('cmpWrap').hidden = false; $('save').disabled = false;
     closeSheet();
     render(); fit();
@@ -450,11 +451,13 @@ $('rotBtn').onclick = () => {
   if (!base) return;
   const src = document.createElement('canvas'); src.width = W; src.height = H;
   src.getContext('2d').putImageData(base, 0, 0);
-  const dst = turn(src, 1);
+  const dst = turn(src, rot ? 3 : 1);           // portrait ⇄ landscape toggle, never past 90°
   [W, H] = [dst.width, dst.height];
   cv.width = W; cv.height = H; cv.style.width = W + 'px'; cv.style.height = H + 'px';
   base = dst.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, W, H);
-  cacheKey = ''; rot = (rot + 90) % 360;
+  cacheKey = ''; rot = rot ? 0 : 90;
+  const rb = $('rotBtn'); rb.classList.toggle('back', !!rot);
+  rb.setAttribute('aria-label', rot ? 'Back to portrait' : 'Switch to landscape'); rb.title = rot ? 'Portrait' : 'Landscape';
   layoutUI(); render(); fit();
 };
 addEventListener('resize', () => { layoutUI(); if (base) fit(); });
