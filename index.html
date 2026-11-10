@@ -25,6 +25,12 @@
   .empty b{color:#93b4ff;font-size:18px}
   .empty input{position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:100px;cursor:pointer}
 
+  /* ---------- UI layer: rotates with the photo (fixed children are laid out inside it) ---------- */
+  #ui{position:fixed;left:50%;top:50%;width:var(--uw,100vw);height:var(--uh,100vh);z-index:5;pointer-events:none;
+      transform:translate(-50%,-50%) rotate(var(--rot,0deg))}
+  #ui .fl{pointer-events:none}
+  #ui .fl > *, #ui .sheet, #ui .ov{pointer-events:auto}
+
   /* ---------- floating controls ---------- */
   .fl{position:fixed;z-index:6;display:flex;align-items:center;gap:8px}
   .top{top:12px;left:12px;right:12px;justify-content:space-between;pointer-events:none}
@@ -39,13 +45,23 @@
   .fb.pri{background:var(--ac);color:var(--acfg);border-color:transparent;box-shadow:0 6px 20px #0006}
   .fb.pri svg{width:28px;height:28px}
   .fb input{position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:100px;cursor:pointer}
-  .bl{bottom:20px;left:16px} .br{bottom:20px;right:16px}
+  .fb.icon{width:40px;height:40px;min-width:0;padding:0}
+  .qwrap{display:flex;gap:6px}
+  .qc{display:flex;align-items:center;gap:2px;background:#000a;color:#fff;border:1px solid #fff2;border-radius:999px;padding:3px;font-size:13px;
+      backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  .qc span{min-width:54px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .qs{width:30px;height:30px;flex:none;border-radius:50%;border:0;background:#ffffff22;color:#fff;font-size:18px;line-height:1;font-weight:600;
+      cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+  .qs:active{background:#ffffff44}
+  .qs:disabled{opacity:.3}
+  .bl{bottom:20px;left:16px}
+  .bl .fb.icon{width:44px;height:44px} .br{bottom:20px;right:16px}
   .fb.on{background:#fff;color:#000}
   .gest{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:6;pointer-events:none;color:#fffc;font-size:12px;background:#0008;padding:5px 10px;border-radius:999px;transition:opacity .4s;white-space:nowrap}
 
   /* ---------- settings sheet ---------- */
   .scrim{position:fixed;inset:0;z-index:8;pointer-events:none}
-  .sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:640px;max-height:64dvh;overflow:auto;z-index:10;
+  .sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:640px;max-height:64%;overflow:auto;z-index:10;
          background:var(--card);background:color-mix(in srgb,var(--card) 88%,transparent);
          backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);
          border-radius:20px 20px 0 0;border:1px solid var(--bd);border-bottom:0;padding:0 14px 18px;box-shadow:0 -10px 40px #0006;
@@ -85,7 +101,7 @@
 
   /* ---------- save overlay ---------- */
   .ov{position:fixed;inset:0;background:#000e;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:12px}
-  .ov img{max-width:100%;max-height:75dvh;border-radius:8px;-webkit-touch-callout:default}
+  .ov img{max-width:100%;max-height:calc(var(--uh,100vh) * .72);border-radius:8px;-webkit-touch-callout:default}
   .ov p{color:#fff;margin:0;text-align:center}
 </style>
 </head>
@@ -100,15 +116,23 @@
   <canvas id="cv" hidden></canvas>
 </div>
 
+<div id="ui">
 <div class="fl top">
   <div class="pill" id="readout">Blur + Tones</div>
-  <button class="fb" id="fitBtn" hidden aria-label="Fit image to screen">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Fit
+  <div class="qwrap" id="quick" hidden>
+    <div class="qc"><button class="qs" data-t="blur" data-d="-1" aria-label="Less blur">−</button><span id="qb">Blur 8</span><button class="qs" data-t="blur" data-d="1" aria-label="More blur">+</button></div>
+    <div class="qc"><button class="qs" data-t="tones" data-d="-1" aria-label="Fewer tones">−</button><span id="qt">3 tones</span><button class="qs" data-t="tones" data-d="1" aria-label="More tones">+</button></div>
+  </div>
+  <button class="fb icon" id="fitBtn" hidden aria-label="Fit image to screen">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
   </button>
 </div>
 <div class="gest" id="gest" hidden>Drag to pan · pinch or double-tap to zoom</div>
 
 <div class="fl bl" id="cmpWrap" hidden>
+  <button class="fb icon" id="rotBtn" aria-label="Rotate 90 degrees" title="Rotate">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>
+  </button>
   <button class="fb" id="cmp" aria-label="Hold to see original">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>Hold: original
   </button>
@@ -170,13 +194,30 @@
   <p>Long-press the image to save it</p>
   <button class="btn" id="ovClose">Done</button>
 </div>
+</div><!-- /ui -->
 
 <script>
 const $ = id => document.getElementById(id);
 const MAXW = 1400, DEF = { blur: 8, tones: 3, gray: true };
 const stage = $('stage'), cv = $('cv'), ctx = cv.getContext('2d', { willReadFrequently: true });
 let base = null, W = 0, H = 0, gray = true, showOrig = false;
-let cacheKey = '', planes = null;
+let cacheKey = '', planes = null, rot = 0;
+const ui = () => document.getElementById('ui');
+function layoutUI() {
+  const side = rot % 180 !== 0, w = innerWidth, h = innerHeight;
+  ui().style.setProperty('--uw', (side ? h : w) + 'px');
+  ui().style.setProperty('--uh', (side ? w : h) + 'px');
+  ui().style.setProperty('--rot', rot + 'deg');
+}
+// rotate a canvas by q quarter-turns clockwise
+function turn(src, q) {
+  q = ((q % 4) + 4) % 4; if (!q) return src;
+  const sw = src.width, sh = src.height, d = document.createElement('canvas');
+  d.width = q % 2 ? sh : sw; d.height = q % 2 ? sw : sh;
+  const c = d.getContext('2d', { willReadFrequently: true });
+  c.translate(d.width / 2, d.height / 2); c.rotate(q * Math.PI / 2); c.drawImage(src, -sw / 2, -sh / 2);
+  return d;
+}
 
 /* ---------- settings memory (best effort) ---------- */
 try {
@@ -202,7 +243,7 @@ function load(f) {
     ctx.drawImage(im, 0, 0, W, H);
     base = ctx.getImageData(0, 0, W, H);
     URL.revokeObjectURL(url);
-    cacheKey = '';
+    cacheKey = ''; rot = 0; layoutUI();
     $('empty').hidden = true; cv.hidden = false; $('cmpWrap').hidden = false; $('save').disabled = false;
     closeSheet();
     render(); fit();
@@ -262,9 +303,10 @@ function updateUI() {
   $('bv').textContent = b === 0 ? 'Off' : b;
   $('tv').textContent = t;
   $('tLab').innerHTML = gray ? 'Tones' : 'Levels <small>per colour channel</small>';
-  $('readout').textContent = !base ? 'Blur + Tones' : showOrig ? 'Original'
-    : `Blur ${b === 0 ? 'off' : b} · ${t} ${gray ? 'tones' : 'levels'}`;
-  document.querySelectorAll('.step').forEach(s => {
+  $('readout').hidden = !!base; $('quick').hidden = !base;
+  $('qb').textContent = `Blur ${b === 0 ? 'off' : b}`;
+  $('qt').textContent = `${t} ${gray ? 'tones' : 'levels'}`;
+  document.querySelectorAll('.step, .qs').forEach(s => {
     const el = $(s.dataset.t), v = +el.value;
     s.disabled = +s.dataset.d < 0 ? v <= +el.min : v >= +el.max;
   });
@@ -304,7 +346,7 @@ function bump(id, d) {
   if (v === +el.value) return false;
   el.value = v; schedule(); return true;
 }
-document.querySelectorAll('.step').forEach(btn => {
+document.querySelectorAll('.step, .qs').forEach(btn => {
   let t1, t2;
   const stop = () => { clearTimeout(t1); clearInterval(t2); };
   btn.addEventListener('pointerdown', e => {
@@ -332,7 +374,7 @@ $('reset').onclick = () => { $('blur').value = DEF.blur; $('tones').value = DEF.
 })();
 
 // save: show a real <img> so long-press "Download image" works
-$('save').onclick = () => { if (!base) return; $('ovImg').src = cv.toDataURL('image/png'); $('ov').hidden = false; };
+$('save').onclick = () => { if (!base) return; $('ovImg').src = turn(cv, (360 - rot) / 90).toDataURL('image/png'); $('ov').hidden = false; };
 $('ovClose').onclick = () => { $('ov').hidden = true; };
 $('ov').addEventListener('click', e => { if (e.target === $('ov')) $('ov').hidden = true; });
 
@@ -402,7 +444,20 @@ stage.addEventListener('pointercancel', endPtr);
 stage.addEventListener('wheel', e => { if (!base) return; e.preventDefault(); closeSheet(); zoomAt(e.clientX, e.clientY, view.s * Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
 stage.addEventListener('contextmenu', e => e.preventDefault());
 $('fitBtn').onclick = () => animateTo(fit);
-addEventListener('resize', () => { if (base) fit(); });
+
+/* ---------- rotate 90° clockwise (rotates the photo itself, so pan/zoom/save all follow) ---------- */
+$('rotBtn').onclick = () => {
+  if (!base) return;
+  const src = document.createElement('canvas'); src.width = W; src.height = H;
+  src.getContext('2d').putImageData(base, 0, 0);
+  const dst = turn(src, 1);
+  [W, H] = [dst.width, dst.height];
+  cv.width = W; cv.height = H; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  base = dst.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, W, H);
+  cacheKey = ''; rot = (rot + 90) % 360;
+  layoutUI(); render(); fit();
+};
+addEventListener('resize', () => { layoutUI(); if (base) fit(); });
 
 function showHint() {
   let seen = false; try { seen = localStorage.getItem('blurTonesHint'); } catch (e) {}
@@ -412,6 +467,7 @@ function showHint() {
   try { localStorage.setItem('blurTonesHint', '1'); } catch (e) {}
 }
 
+layoutUI();
 updateUI();
 
 /* ---------- installable app: offline + "Share to Tones" ---------- */
