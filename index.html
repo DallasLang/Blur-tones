@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blur + Tones</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2563eb">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  :root { color-scheme: light dark; --bg:#f6f5f3; --fg:#1c1917; --mut:#6b6560; --card:#fff; --bd:#e2dfdc; --ac:#2563eb; --acfg:#fff; --soft:#eef2ff; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#12100e; --fg:#f5f5f4; --mut:#a8a29e; --card:#1c1917; --bd:#2f2b28; --ac:#60a5fa; --acfg:#0b1220; --soft:#1e293b; } }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  [hidden]{display:none!important}
+  body{margin:0;font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg);max-width:720px;margin-inline:auto;padding:0 12px 24px}
+
+  /* Sticky preview so the image stays in view while adjusting */
+  .preview{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0 8px}
+  .bar{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .bar h1{font-size:17px;margin:0;flex:1}
+  .stage{position:relative;display:flex;justify-content:center;align-items:center;min-height:200px;border-radius:12px;overflow:hidden;
+         background:var(--card);border:1px solid var(--bd);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+  .stage canvas{display:block;max-width:100%;max-height:44vh;width:auto;height:auto}
+  .tag{position:absolute;top:8px;left:8px;background:#000a;color:#fff;font-size:12px;padding:3px 8px;border-radius:999px;pointer-events:none}
+  .empty{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;min-height:200px;
+         color:var(--mut);text-align:center;padding:24px;border:2px dashed var(--bd);border-radius:12px;cursor:pointer}
+  .empty b{color:var(--ac);font-size:16px}
+  .sw{display:flex;height:22px;border-radius:6px;overflow:hidden;margin-top:8px;border:1px solid var(--bd)}
+  .sw div{flex:1}
+
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-top:10px}
+  .lab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .lab span{font-weight:600}
+  .lab small{color:var(--mut);font-weight:400;margin-left:6px}
+  .lab output{font-variant-numeric:tabular-nums;font-weight:700;font-size:18px;min-width:2ch;text-align:right}
+  .srow{display:flex;align-items:center;gap:10px}
+  .srow input[type=range]{flex:1;height:44px;accent-color:var(--ac);margin:0}
+  .step{width:48px;height:48px;flex:none;border-radius:12px;border:1px solid var(--bd);background:var(--soft);color:var(--fg);
+        font-size:24px;line-height:1;font-weight:600;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+  .step:active{transform:scale(.94)}
+  .step:disabled{opacity:.35}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .chip{min-width:44px;height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--bd);background:transparent;color:var(--fg);font:inherit;font-size:14px;cursor:pointer}
+  .chip.on{background:var(--ac);color:var(--acfg);border-color:var(--ac)}
+
+  .seg{display:flex;background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:3px}
+  .seg button{flex:1;height:40px;border:0;border-radius:9px;background:transparent;color:var(--fg);font:inherit;cursor:pointer}
+  .seg button.on{background:var(--card);box-shadow:0 1px 3px #0003;font-weight:600}
+
+  .btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 14px;border-radius:12px;
+       border:1px solid var(--bd);background:var(--card);color:var(--fg);font:inherit;cursor:pointer;user-select:none;-webkit-user-select:none}
+  .btn.pri{background:var(--ac);color:var(--acfg);border-color:var(--ac);font-weight:600}
+  .btn.sm{height:36px;padding:0 12px;font-size:14px}
+  .btn:disabled{opacity:.4}
+  .pick input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:100px}
+  .actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+  .fallback{margin-top:14px;font-size:13px;color:var(--mut)}
+  .fallback input{display:block;margin-top:4px;font:inherit;color:var(--fg);max-width:100%}
+
+  .ov{position:fixed;inset:0;background:#000d;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:12px}
+  .ov[hidden]{display:none}
+  .ov img{max-width:100%;max-height:75vh;border-radius:8px;-webkit-touch-callout:default}
+  .ov p{color:#fff;margin:0;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="preview">
+  <div class="bar">
+    <h1>Blur + Tones</h1>
+    <label class="btn sm pick" id="changeBtn" hidden>Change photo<input type="file" accept="image/*" class="fileIn" aria-label="Change photo"></label>
+  </div>
+  <div class="stage" id="stage">
+    <label class="empty" id="empty">
+      <b>Tap to choose a photo</b>
+      <span>Blur it, then reduce it to 2, 3, 4… tones</span>
+      <input type="file" accept="image/*" class="fileIn" aria-label="Choose photo" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:100px">
+    </label>
+    <canvas id="cv" hidden></canvas>
+    <div class="tag" id="tag" hidden>Original</div>
+  </div>
+  <div class="sw" id="sw" hidden></div>
+</div>
+
+<div class="card">
+  <div class="lab"><span>Blur</span><output id="bv">8</output></div>
+  <div class="srow">
+    <button class="step" data-t="blur" data-d="-1" aria-label="Less blur">−</button>
+    <input type="range" id="blur" min="0" max="60" step="1" value="8" aria-label="Blur amount">
+    <button class="step" data-t="blur" data-d="1" aria-label="More blur">+</button>
+  </div>
+  <div class="chips" data-for="blur">
+    <button class="chip" data-v="0">Off</button><button class="chip" data-v="4">Light</button>
+    <button class="chip" data-v="12">Medium</button><button class="chip" data-v="30">Heavy</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="lab"><span id="tLab">Tones</span><output id="tv">3</output></div>
+  <div class="srow">
+    <button class="step" data-t="tones" data-d="-1" aria-label="Fewer tones">−</button>
+    <input type="range" id="tones" min="2" max="16" step="1" value="3" aria-label="Number of tones">
+    <button class="step" data-t="tones" data-d="1" aria-label="More tones">+</button>
+  </div>
+  <div class="chips" data-for="tones">
+    <button class="chip" data-v="2">2</button><button class="chip" data-v="3">3</button><button class="chip" data-v="4">4</button>
+    <button class="chip" data-v="5">5</button><button class="chip" data-v="7">7</button><button class="chip" data-v="9">9</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="seg" role="group" aria-label="Colour mode">
+    <button id="mGray" class="on" aria-pressed="true">Greyscale</button>
+    <button id="mCol" aria-pressed="false">Colour</button>
+  </div>
+  <div class="actions">
+    <button class="btn" id="cmp" disabled>Hold: compare</button>
+    <button class="btn" id="reset">Reset</button>
+    <button class="btn pri" id="save" disabled>Save</button>
+  </div>
+  <label class="fallback">Photo picker not opening? Try this one:
+    <input type="file" class="fileIn" accept="image/*,.jpg,.jpeg,.png,.webp,.heic">
+  </label>
+</div>
+
+<div class="ov" id="ov" hidden>
+  <img id="ovImg" alt="Result image">
+  <p>Long-press the image to save it</p>
+  <button class="btn" id="ovClose">Done</button>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const MAXW = 900, DEF = { blur: 8, tones: 3, gray: true };
+const cv = $('cv'), ctx = cv.getContext('2d', { willReadFrequently: true });
+let base = null, W = 0, H = 0, gray = true, showOrig = false;
+let cacheKey = '', planes = null;
+
+/* ---------- settings memory (best effort) ---------- */
+try {
+  const s = JSON.parse(localStorage.getItem('blurTones') || 'null');
+  if (s) { $('blur').value = s.blur; $('tones').value = s.tones; gray = s.gray !== false; }
+} catch (e) {}
+function saveSettings() { try { localStorage.setItem('blurTones', JSON.stringify({ blur: +$('blur').value, tones: +$('tones').value, gray })); } catch (e) {} }
+
+/* ---------- loading ---------- */
+document.querySelectorAll('.fileIn').forEach(i => i.addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; if (f) load(f); e.target.value = '';
+}));
+document.addEventListener('paste', e => {
+  const it = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+  if (it) load(it.getAsFile());
+});
+function load(f) {
+  const url = URL.createObjectURL(f), im = new Image();
+  im.onload = () => {
+    const s = Math.min(1, MAXW / Math.max(im.naturalWidth, im.naturalHeight));
+    W = Math.max(1, Math.round(im.naturalWidth * s)); H = Math.max(1, Math.round(im.naturalHeight * s));
+    cv.width = W; cv.height = H;
+    ctx.drawImage(im, 0, 0, W, H);
+    base = ctx.getImageData(0, 0, W, H);
+    URL.revokeObjectURL(url);
+    cacheKey = '';
+    $('empty').hidden = true; cv.hidden = false; $('changeBtn').hidden = false;
+    $('cmp').disabled = false; $('save').disabled = false;
+    render();
+  };
+  im.onerror = () => { $('empty').querySelector('span').textContent = "Couldn't read that image. Try a JPG or PNG."; };
+  im.src = url;
+}
+
+/* ---------- blur (3-pass box ≈ gaussian) ---------- */
+function boxH(s, d, w, h, r) { const n = 2*r+1; for (let y = 0; y < h; y++) { const o = y*w; let a = 0;
+  for (let i = -r; i <= r; i++) a += s[o + Math.min(w-1, Math.max(0, i))];
+  for (let x = 0; x < w; x++) { d[o+x] = a/n; a += s[o + Math.min(w-1, x+r+1)] - s[o + Math.max(0, x-r)]; } } }
+function boxV(s, d, w, h, r) { const n = 2*r+1; for (let x = 0; x < w; x++) { let a = 0;
+  for (let i = -r; i <= r; i++) a += s[Math.min(h-1, Math.max(0, i))*w + x];
+  for (let y = 0; y < h; y++) { d[y*w+x] = a/n; a += s[Math.min(h-1, y+r+1)*w + x] - s[Math.max(0, y-r)*w + x]; } } }
+function blurPlane(p, w, h, r) {
+  if (r < 1) return p;
+  let a = p, b = new Float32Array(p.length);
+  for (let k = 0; k < 3; k++) { boxH(a, b, w, h, r); [a, b] = [b, a]; boxV(a, b, w, h, r); [a, b] = [b, a]; }
+  return a;
+}
+function getPlanes(r) {
+  const key = r + '|' + gray;
+  if (key === cacheKey) return planes;           // changing tones only = no re-blur
+  const px = base.data, N = W * H;
+  if (gray) {
+    const L = new Float32Array(N);
+    for (let i = 0; i < N; i++) L[i] = 0.2126*px[i*4] + 0.7152*px[i*4+1] + 0.0722*px[i*4+2];
+    planes = [blurPlane(L, W, H, r)];
+  } else {
+    planes = [0,1,2].map(c => { const p = new Float32Array(N); for (let i = 0; i < N; i++) p[i] = px[i*4+c]; return blurPlane(p, W, H, r); });
+  }
+  cacheKey = key; return planes;
+}
+
+/* ---------- render ---------- */
+function render() {
+  updateUI();
+  if (!base) return;
+  $('tag').hidden = !showOrig;
+  if (showOrig) { ctx.putImageData(base, 0, 0); return; }
+  const n = +$('tones').value;
+  const r = Math.round(+$('blur').value / 100 * Math.max(W, H) * 0.12);
+  const P = getPlanes(r), N = W * H;
+  const lut = new Uint8ClampedArray(256);
+  for (let v = 0; v < 256; v++) lut[v] = Math.round(Math.round(v / 255 * (n-1)) / (n-1) * 255);
+  const out = ctx.createImageData(W, H), od = out.data;
+  if (gray) { const L = P[0]; for (let i = 0; i < N; i++) { const v = lut[L[i] + .5 | 0]; od[i*4] = od[i*4+1] = od[i*4+2] = v; od[i*4+3] = 255; } }
+  else { const [R, G, B] = P; for (let i = 0; i < N; i++) { od[i*4] = lut[R[i]+.5|0]; od[i*4+1] = lut[G[i]+.5|0]; od[i*4+2] = lut[B[i]+.5|0]; od[i*4+3] = 255; } }
+  ctx.putImageData(out, 0, 0);
+}
+let raf = 0;
+const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { render(); saveSettings(); }); };
+
+function updateUI() {
+  const b = +$('blur').value, t = +$('tones').value;
+  $('bv').textContent = b === 0 ? 'Off' : b;
+  $('tv').textContent = t;
+  $('tLab').innerHTML = gray ? 'Tones' : 'Levels <small>per colour channel</small>';
+  document.querySelectorAll('.step').forEach(s => {
+    const el = $(s.dataset.t), v = +el.value;
+    s.disabled = +s.dataset.d < 0 ? v <= +el.min : v >= +el.max;
+  });
+  document.querySelectorAll('.chips').forEach(c => {
+    const v = $(c.dataset.for).value;
+    c.querySelectorAll('.chip').forEach(ch => ch.classList.toggle('on', ch.dataset.v === v));
+  });
+  $('mGray').classList.toggle('on', gray); $('mCol').classList.toggle('on', !gray);
+  $('mGray').setAttribute('aria-pressed', gray); $('mCol').setAttribute('aria-pressed', !gray);
+  const sw = $('sw');
+  if (gray && base) {
+    sw.hidden = false;
+    if (sw.childElementCount !== t) {
+      sw.innerHTML = '';
+      for (let i = 0; i < t; i++) { const d = document.createElement('div'), v = Math.round(i/(t-1)*255); d.style.background = `rgb(${v},${v},${v})`; sw.appendChild(d); }
+    }
+  } else sw.hidden = true;
+}
+
+/* ---------- controls ---------- */
+['blur', 'tones'].forEach(id => $(id).addEventListener('input', schedule));
+function bump(id, d) {
+  const el = $(id), v = Math.min(+el.max, Math.max(+el.min, +el.value + d));
+  if (v === +el.value) return false;
+  el.value = v; schedule(); return true;
+}
+document.querySelectorAll('.step').forEach(btn => {
+  let t1, t2;
+  const stop = () => { clearTimeout(t1); clearInterval(t2); };
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault(); stop();
+    bump(btn.dataset.t, +btn.dataset.d);
+    t1 = setTimeout(() => { t2 = setInterval(() => { if (!bump(btn.dataset.t, +btn.dataset.d)) stop(); }, 70); }, 420);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
+  btn.addEventListener('click', e => { if (e.detail === 0) bump(btn.dataset.t, +btn.dataset.d); }); // keyboard
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+});
+document.querySelectorAll('.chips').forEach(c => c.addEventListener('click', e => {
+  const ch = e.target.closest('.chip'); if (!ch) return;
+  $(c.dataset.for).value = ch.dataset.v; schedule();
+}));
+$('mGray').onclick = () => { gray = true; schedule(); };
+$('mCol').onclick = () => { gray = false; schedule(); };
+$('reset').onclick = () => { $('blur').value = DEF.blur; $('tones').value = DEF.tones; gray = DEF.gray; schedule(); };
+
+// compare: hold the button or hold the image
+function holdCompare(el) {
+  el.addEventListener('pointerdown', e => { if (!base) return; e.preventDefault(); showOrig = true; render(); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, () => { if (showOrig) { showOrig = false; render(); } }));
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+holdCompare($('cmp')); holdCompare(cv);
+
+// save: show a real <img> so long-press "Download image" works
+$('save').onclick = () => { if (!base) return; $('ovImg').src = cv.toDataURL('image/png'); $('ov').hidden = false; };
+$('ovClose').onclick = () => { $('ov').hidden = true; };
+$('ov').addEventListener('click', e => { if (e.target === $('ov')) $('ov').hidden = true; });
+
+updateUI();
+
+/* ---------- installable app: offline + "Share to Tones" ---------- */
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if (location.search.includes('shared=1') && 'caches' in window) {
+  caches.open('shared').then(c => c.match('./shared-image').then(r => r && r.blob().then(b => { load(b); c.delete('./shared-image'); history.replaceState(null, '', './'); })));
+}
+</script>
+</body>
+</html>
