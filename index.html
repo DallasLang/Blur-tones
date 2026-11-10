@@ -29,7 +29,7 @@
   #ui{position:fixed;left:50%;top:50%;width:var(--uw,100vw);height:var(--uh,100vh);z-index:5;pointer-events:none;
       transform:translate(-50%,-50%) rotate(var(--rot,0deg))}
   #ui .fl{pointer-events:none}
-  #ui .fl > *, #ui .sheet, #ui .ov{pointer-events:auto}
+  #ui .fl > *, #ui .sheet, #ui .ov, #ui .mbar .in, #ui .dlg{pointer-events:auto}
 
   /* ---------- floating controls ---------- */
   .fl{position:fixed;z-index:6;display:flex;align-items:center;gap:8px}
@@ -100,6 +100,36 @@
   .fallback{display:block;margin-top:12px;font-size:12px;color:var(--mut)}
   .fallback input{display:block;margin-top:4px;font:inherit;color:var(--fg);max-width:100%}
 
+  /* ---------- auto-hide of on-photo buttons ---------- */
+  #ui .fl, #ui .mbar{transition:opacity .3s}
+  #ui.idle .fl, #ui.idle .mbar{opacity:0}
+  #ui.idle .fl > *, #ui.idle .mbar .in{pointer-events:none}
+  .note{font-size:12px;color:var(--mut);margin-top:6px}
+  .lines.off{display:none}
+
+  /* ---------- measuring ---------- */
+  .lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  .mbar{position:fixed;left:12px;right:12px;bottom:84px;z-index:7;display:flex;justify-content:center}
+  .mbar .in{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;align-items:center;max-width:100%;padding:5px;border-radius:16px;background:#000c;
+            border:1px solid #fff2;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);scrollbar-width:none}
+  .mb{flex:none;display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 11px;border-radius:10px;border:0;background:#ffffff1f;color:#fff;font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+  .mb:disabled{opacity:.35}
+  .mb.on{background:#fff;color:#000}
+  .mb.warn{background:#dc2626;color:#fff}
+  .useg{display:flex;flex:none;background:#ffffff14;border-radius:10px;padding:2px;gap:2px}
+  .useg .mb{height:32px;padding:0 10px;background:transparent}
+  .useg .mb.on{background:#fff;color:#000}
+  .mhint{bottom:140px}
+  .loupe{position:fixed;left:50%;top:60px;width:120px;height:120px;margin-left:-60px;border-radius:50%;border:2px solid #fff;
+         box-shadow:0 4px 20px #000a;z-index:9;background:#000;pointer-events:none}
+  .loupe.low{top:auto;bottom:140px}
+  .dlg{position:fixed;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;background:#0009;padding:16px}
+  .dlg .box{background:var(--card);color:var(--fg);border-radius:16px;padding:16px;width:min(320px,100%);box-shadow:0 10px 40px #0008}
+  .dlg .sub{font-size:13px;color:var(--mut);margin-top:4px}
+  .dlg .in{display:flex;gap:8px;align-items:center;margin:12px 0}
+  .dlg input{flex:1;min-width:0;height:44px;font:inherit;font-size:18px;padding:0 10px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--fg)}
+  .dlg .row{display:flex;gap:8px;justify-content:flex-end}
+
   /* ---------- save overlay ---------- */
   .ov{position:fixed;inset:0;background:#000e;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:12px}
   .ov img{max-width:100%;max-height:calc(var(--uh,100vh) * .72);border-radius:8px;-webkit-touch-callout:default}
@@ -115,6 +145,7 @@
     <input type="file" accept="image/*" class="fileIn" aria-label="Choose photo">
   </label>
   <canvas id="cv" hidden></canvas>
+  <svg class="lines" id="lines" aria-hidden="true"></svg>
 </div>
 
 <div id="ui">
@@ -134,8 +165,11 @@
   <button class="fb icon" id="rotBtn" aria-label="Switch to landscape" title="Landscape">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>
   </button>
+  <button class="fb icon" id="rulerBtn" aria-label="Measure with lines" aria-pressed="false" title="Measure">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17 17 3l4 4L7 21z"/><path d="M7.5 12.5l2 2M10.5 9.5l2 2M13.5 6.5l2 2"/></svg>
+  </button>
   <button class="fb" id="cmp" aria-label="Hold to see original">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>Hold: original
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>Original
   </button>
 </div>
 <div class="fl br">
@@ -175,6 +209,18 @@
   </div>
 
   <div class="sec">
+    <div class="lab"><span>Measuring lines</span></div>
+    <div class="seg" role="group" aria-label="Measuring lines">
+      <button id="lnShow" aria-pressed="true">Show</button><button id="lnHide" aria-pressed="false">Hide</button>
+    </div>
+    <div class="lab" style="margin-top:12px"><span>Buttons on photo</span></div>
+    <div class="seg" role="group" aria-label="Buttons on photo">
+      <button id="ovAlways" aria-pressed="true">Always show</button><button id="ovAuto" aria-pressed="false">Auto-hide</button>
+    </div>
+    <div class="note">Auto-hide: buttons fade when you pan or after a few seconds. Tap the photo to bring them back.</div>
+  </div>
+
+  <div class="sec">
     <div class="seg" role="group" aria-label="Colour mode">
       <button id="mGray" class="on" aria-pressed="true">Greyscale</button>
       <button id="mCol" aria-pressed="false">Colour</button>
@@ -193,15 +239,31 @@
 <div class="ov" id="ov" hidden>
   <img id="ovImg" alt="Result image">
   <p>Long-press the image to save it</p>
-  <button class="btn" id="ovClose">Done</button>
+  <div style="display:flex;gap:8px"><button class="btn" id="ovLines" hidden>Lines: on</button><button class="btn" id="ovClose">Done</button></div>
 </div>
+<div class="mbar" id="mbar" hidden><div class="in">
+  <div class="useg" role="group" aria-label="Units"><button class="mb" data-u="px">px</button><button class="mb" data-u="mm">mm</button></div>
+  <button class="mb" id="mScale" aria-label="Set scale from selected line">Scale</button>
+  <button class="mb" id="mDel" aria-label="Delete selected line" title="Delete" style="padding:0 9px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button>
+  <button class="mb" id="mClear">Clear</button>
+  <button class="mb on" id="mDone">Done</button>
+</div></div>
+<div class="gest mhint" id="mhint" hidden>Drag on the photo to draw a line</div>
+<div class="gest mhint" id="toast" hidden></div>
+<canvas class="loupe" id="loupe" width="240" height="240" hidden></canvas>
+<div class="dlg" id="dlg" hidden><div class="box" role="dialog" aria-label="Set scale">
+  <b>Set scale</b>
+  <div class="sub">How long is the selected line in real life? All lines will then show mm.</div>
+  <div class="in"><input id="dlgIn" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g. 50"><span>mm</span></div>
+  <div class="row"><button class="btn" id="dlgCancel">Cancel</button><button class="btn pri" id="dlgOk">Set</button></div>
+</div></div>
 </div><!-- /ui -->
 
 <script>
 const $ = id => document.getElementById(id);
 const MAXW = 1400, DEF = { blur: 8, tones: 3, gray: true };
 const stage = $('stage'), cv = $('cv'), ctx = cv.getContext('2d', { willReadFrequently: true });
-let base = null, W = 0, H = 0, gray = true, showOrig = false;
+let base = null, W = 0, H = 0, gray = true, showOrig = false, showLines = true, autoHide = false;
 let cacheKey = '', planes = null, rot = 0;
 const ui = () => document.getElementById('ui');
 function layoutUI() {
@@ -223,9 +285,9 @@ function turn(src, q) {
 /* ---------- settings memory (best effort) ---------- */
 try {
   const s = JSON.parse(localStorage.getItem('blurTones') || 'null');
-  if (s) { $('blur').value = s.blur; $('tones').value = s.tones; gray = s.gray !== false; }
+  if (s) { $('blur').value = s.blur; $('tones').value = s.tones; gray = s.gray !== false; showLines = s.showLines !== false; autoHide = !!s.autoHide; }
 } catch (e) {}
-function saveSettings() { try { localStorage.setItem('blurTones', JSON.stringify({ blur: +$('blur').value, tones: +$('tones').value, gray })); } catch (e) {} }
+function saveSettings() { try { localStorage.setItem('blurTones', JSON.stringify({ blur: +$('blur').value, tones: +$('tones').value, gray, showLines, autoHide })); } catch (e) {} }
 
 /* ---------- loading ---------- */
 document.querySelectorAll('.fileIn').forEach(i => i.addEventListener('change', e => {
@@ -245,6 +307,8 @@ function load(f) {
     base = ctx.getImageData(0, 0, W, H);
     URL.revokeObjectURL(url);
     cacheKey = ''; rot = 0; layoutUI(); $('rotBtn').classList.remove('back');
+    W0 = W; H0 = H; NW = im.naturalWidth; NH = im.naturalHeight; sig = signature(im);
+    sel = null; draft = null; loadLines(); updateMeasureUI(); wake();
     $('empty').hidden = true; cv.hidden = false; $('cmpWrap').hidden = false; $('save').disabled = false;
     closeSheet();
     render(); fit();
@@ -316,6 +380,9 @@ function updateUI() {
     c.querySelectorAll('.chip').forEach(ch => ch.classList.toggle('on', ch.dataset.v === v));
   });
   $('mGray').classList.toggle('on', gray); $('mCol').classList.toggle('on', !gray);
+  for (const [id, on] of [['lnShow', showLines], ['lnHide', !showLines], ['ovAlways', !autoHide], ['ovAuto', autoHide]]) {
+    $(id).classList.toggle('on', on); $(id).setAttribute('aria-pressed', on);
+  }
   $('mGray').setAttribute('aria-pressed', gray); $('mCol').setAttribute('aria-pressed', !gray);
   const sw = $('sw');
   if (gray) {
@@ -338,7 +405,10 @@ $('closeSheet').onclick = e => { e.stopPropagation(); closeSheet(); };
   $('grab').addEventListener('pointerdown', e => { y0 = e.clientY; });
   $('grab').addEventListener('pointerup', e => { if (y0 !== null && e.clientY - y0 > 30) closeSheet(); y0 = null; });
 })();
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); $('ov').hidden = true; } });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeSheet(); $('ov').hidden = true; $('dlg').hidden = true; }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !/INPUT/.test(document.activeElement.tagName)) $('mDel').click();
+});
 
 /* ---------- controls ---------- */
 ['blur', 'tones'].forEach(id => $(id).addEventListener('input', schedule));
@@ -375,7 +445,8 @@ $('reset').onclick = () => { $('blur').value = DEF.blur; $('tones').value = DEF.
 })();
 
 // save: show a real <img> so long-press "Download image" works
-$('save').onclick = () => { if (!base) return; $('ovImg').src = turn(cv, (360 - rot) / 90).toDataURL('image/png'); $('ov').hidden = false; };
+$('save').onclick = () => { if (!base) return; $('ovLines').hidden = !lines.length; $('ovLines').textContent = 'Lines: ' + (saveWithLines ? 'on' : 'off');
+  $('ovImg').src = exportCanvas().toDataURL('image/png'); $('ov').hidden = false; };
 $('ovClose').onclick = () => { $('ov').hidden = true; };
 $('ov').addEventListener('click', e => { if (e.target === $('ov')) $('ov').hidden = true; });
 
@@ -386,6 +457,7 @@ const vp = () => ({ w: stage.clientWidth, h: stage.clientHeight });
 function apply() {
   cv.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.s})`;
   $('fitBtn').hidden = !base || Math.abs(view.s / fitS - 1) < 0.02;
+  drawLines();
 }
 function clampView() {
   const { w, h } = vp(), iw = W * view.s, ih = H * view.s;
@@ -407,38 +479,76 @@ function zoomAt(cx, cy, s) {
 function animateTo(fn) { cv.style.transition = 'transform .22s ease'; fn(); setTimeout(() => cv.style.transition = '', 240); }
 const two = () => { const [a, b] = [...ptrs.values()]; return { c: { x: (a.x+b.x)/2, y: (a.y+b.y)/2 }, d: Math.hypot(a.x-b.x, a.y-b.y) || 1 }; };
 
+let drag = null, tapHit = null, wasIdle = false;
 stage.addEventListener('pointerdown', e => {
   if (!base) return;                          // let the empty-state picker work
   e.preventDefault();
   closeSheet();                               // touching the image collapses the settings
   stage.setPointerCapture(e.pointerId);
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (ptrs.size === 1) { moved = 0; multi = false; } else multi = true;
+  if (ptrs.size > 1) {                        // second finger: abandon any line edit, pinch instead
+    multi = true;
+    if (drag?.type === 'end') drag.l[drag.k] = drag.orig;
+    if (drag?.type === 'move') { drag.l.a = drag.a; drag.l.b = drag.b; }
+    draft = null; drag = { type: 'pinch' }; hideLoupe(); drawLines();
+    return;
+  }
+  moved = 0; multi = false; wasIdle = ui().classList.contains('idle');
+  const p = { x: e.clientX, y: e.clientY }, sl = lines.find(l => l.id === sel), hk = hitHandle(p);
+  tapHit = hitLine(p);
+  if (hk) drag = { type: 'end', l: sl, k: hk, orig: { ...sl[hk] } };
+  else if (sl && tapHit === sl) drag = { type: 'move', l: sl, start: scrToNorm(p.x, p.y), a: { ...sl.a }, b: { ...sl.b } };
+  else if (measure) { const n = scrToNorm(p.x, p.y); draft = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), a: n, b: { ...n } }; drag = { type: 'draw' }; }
+  else drag = { type: 'pan' };
 });
 stage.addEventListener('pointermove', e => {
   const p = ptrs.get(e.pointerId); if (!p) return;
-  if (ptrs.size === 1) {
-    view.x += e.clientX - p.x; view.y += e.clientY - p.y;
-    moved += Math.abs(e.clientX - p.x) + Math.abs(e.clientY - p.y);
+  if (ptrs.size === 1 && drag) {
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    moved += Math.abs(dx) + Math.abs(dy);
     p.x = e.clientX; p.y = e.clientY;
-    clampView(); apply();
-  } else {
+    if (drag.type === 'pan') { view.x += dx; view.y += dy; clampView(); apply(); if (autoHide && moved > 10) goIdle(); }
+    else if (drag.type === 'draw') { draft.b = scrToNorm(p.x, p.y); drawLines(); showLoupe(p.x, p.y, draft.b, draft); }
+    else if (drag.type === 'end') { drag.l[drag.k] = scrToNorm(p.x, p.y); drawLines(); showLoupe(p.x, p.y, drag.l[drag.k], drag.l); }
+    else if (drag.type === 'move') {
+      const n = scrToNorm(p.x, p.y), du = n.u - drag.start.u, dv = n.v - drag.start.v;
+      drag.l.a = { u: drag.a.u + du, v: drag.a.v + dv }; drag.l.b = { u: drag.b.u + du, v: drag.b.v + dv }; drawLines();
+    }
+  } else if (ptrs.size >= 2) {
     const before = two();
     p.x = e.clientX; p.y = e.clientY;
     const after = two();
     view.x += after.c.x - before.c.x; view.y += after.c.y - before.c.y;
     zoomAt(after.c.x, after.c.y, view.s * after.d / before.d);
+    if (autoHide) goIdle();
   }
 });
 function endPtr(e) {
   if (!ptrs.has(e.pointerId)) return;
   ptrs.delete(e.pointerId);
-  if (ptrs.size || multi || moved > 10 || e.type === 'pointercancel') return;
-  const now = performance.now();
-  if (now - lastTap < 300 && lastPos && Math.hypot(e.clientX - lastPos.x, e.clientY - lastPos.y) < 40) {
-    animateTo(() => view.s > fitS * 1.05 ? fit() : zoomAt(e.clientX, e.clientY, fitS * 2.5));
-    lastTap = 0;
-  } else { lastTap = now; lastPos = { x: e.clientX, y: e.clientY }; }
+  if (ptrs.size) return;
+  hideLoupe();
+  const d = drag; drag = null;
+  const isTap = !multi && moved <= 10 && e.type !== 'pointercancel';
+  if (d?.type === 'draw' && draft) {
+    const a = toScr(draft.a), b = toScr(draft.b);
+    if (!isTap && e.type !== 'pointercancel' && Math.hypot(a.x - b.x, a.y - b.y) > 8) { lines.push(draft); sel = draft.id; saveLines(); }
+    draft = null;
+  }
+  if ((d?.type === 'end' || d?.type === 'move') && !isTap) saveLines();
+  if (isTap && d?.type !== 'end' && !(d?.type === 'move')) {
+    if (wasIdle) { wake(); if (tapHit) sel = tapHit.id; }   // tap brings hidden buttons back
+    else if (tapHit) sel = tapHit.id;                  // tap a line to select it
+    else if (sel) sel = null;                          // tap empty photo to deselect
+    else {                                             // double-tap to zoom
+      const now = performance.now();
+      if (now - lastTap < 300 && lastPos && Math.hypot(e.clientX - lastPos.x, e.clientY - lastPos.y) < 40) {
+        animateTo(() => view.s > fitS * 1.05 ? fit() : zoomAt(e.clientX, e.clientY, fitS * 2.5));
+        lastTap = 0;
+      } else { lastTap = now; lastPos = { x: e.clientX, y: e.clientY }; }
+    }
+  }
+  updateMeasureUI(); drawLines();
 }
 stage.addEventListener('pointerup', endPtr);
 stage.addEventListener('pointercancel', endPtr);
@@ -470,8 +580,155 @@ function showHint() {
   try { localStorage.setItem('blurTonesHint', '1'); } catch (e) {}
 }
 
+/* ---------- measuring lines ---------- */
+// Lines are stored in normalised coordinates (0–1) of the photo as first loaded, so they
+// follow pan, zoom and rotation, and come back when the same photo is opened again.
+let W0 = 0, H0 = 0, NW = 0, NH = 0, sig = '', lines = [], sel = null, draft = null, measure = false, unit = 'px', mmPerPx = 0, saveWithLines = true;
+const LKEY = 'blurTonesLines:';
+function signature(im) {
+  const c = document.createElement('canvas'); c.width = c.height = 24;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, 24, 24);
+  const d = x.getImageData(0, 0, 24, 24).data; let h = 2166136261;
+  for (let i = 0; i < d.length; i += 4) for (let k = 0; k < 3; k++) { h ^= d[i + k] >> 3; h = Math.imul(h, 16777619); }
+  return im.naturalWidth + 'x' + im.naturalHeight + ':' + (h >>> 0).toString(36);
+}
+function loadLines() {
+  lines = []; mmPerPx = 0; unit = 'px';
+  try { const d = JSON.parse(localStorage.getItem(LKEY + sig) || 'null'); if (d) { lines = d.lines || []; mmPerPx = d.mmPerPx || 0; unit = mmPerPx && d.unit === 'mm' ? 'mm' : 'px'; } } catch (e) {}
+}
+function saveLines() {
+  try { if (!lines.length && !mmPerPx) localStorage.removeItem(LKEY + sig); else localStorage.setItem(LKEY + sig, JSON.stringify({ lines, mmPerPx, unit, t: Date.now() })); } catch (e) {}
+}
+function toDisp(p) { return rot ? { x: (1 - p.v) * H0, y: p.u * W0 } : { x: p.u * W0, y: p.v * H0 }; }
+function fromDisp(x, y) { return rot ? { u: y / W0, v: 1 - x / H0 } : { u: x / W0, v: y / H0 }; }
+function toScr(p) { const d = toDisp(p); return { x: view.x + d.x * view.s, y: view.y + d.y * view.s }; }
+function scrToNorm(sx, sy) {
+  const x = Math.min(W, Math.max(0, (sx - view.x) / view.s)), y = Math.min(H, Math.max(0, (sy - view.y) / view.s));
+  return fromDisp(x, y);
+}
+function lenPx(l) { return Math.hypot((l.b.u - l.a.u) * NW, (l.b.v - l.a.v) * NH); }   // in the photo's full-size pixels
+function label(l) {
+  const px = lenPx(l);
+  if (unit === 'mm' && mmPerPx) { const mm = px * mmPerPx; return (mm >= 100 ? mm.toFixed(0) : mm.toFixed(1)) + ' mm'; }
+  return Math.round(px) + ' px';
+}
+function segDist(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1;
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2));
+  return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+}
+function hitLine(p) { if (!showLines) return null; let best = null, bd = 20; for (const l of lines) { const d = segDist(p, toScr(l.a), toScr(l.b)); if (d < bd) { bd = d; best = l; } } return best; }
+function hitHandle(p) {
+  const l = showLines && lines.find(l => l.id === sel); if (!l) return null;
+  for (const k of ['a', 'b']) { const s = toScr(l[k]); if (Math.hypot(p.x - s.x, p.y - s.y) < 28) return k; }
+  return null;
+}
+function drawLines() {
+  const svg = $('lines'); svg.classList.toggle('off', !showLines); if (!base) { svg.innerHTML = ''; return; }
+  let h = '';
+  for (const l of draft ? lines.concat([draft]) : lines) {
+    const a = toScr(l.a), b = toScr(l.b), on = l.id === sel, col = l.cal ? '#22d3ee' : '#facc15';
+    const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+    h += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#000" stroke-opacity=".55" stroke-width="${on ? 7 : 5}" stroke-linecap="round"/>`;
+    h += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${col}" stroke-width="${on ? 3.5 : 2.5}" stroke-linecap="round"/>`;
+    for (const q of [a, b]) h += `<line x1="${q.x - nx * 7}" y1="${q.y - ny * 7}" x2="${q.x + nx * 7}" y2="${q.y + ny * 7}" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/>`;
+    const tx = (a.x + b.x) / 2 + nx * 15, ty = (a.y + b.y) / 2 + ny * 15;
+    h += `<text x="${tx}" y="${ty}" transform="rotate(${rot} ${tx} ${ty})" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="700" fill="${on ? col : '#fff'}" stroke="#000" stroke-width="4" stroke-linejoin="round" paint-order="stroke">${label(l)}${l.cal ? ' (scale)' : ''}</text>`;
+    if (on) for (const q of [a, b]) h += `<circle cx="${q.x}" cy="${q.y}" r="11" fill="#fff" fill-opacity=".2" stroke="#fff" stroke-width="2"/><circle cx="${q.x}" cy="${q.y}" r="2" fill="${col}"/>`;
+  }
+  svg.innerHTML = h;
+}
+// magnifier so the finger doesn't hide the point being placed
+const loupe = $('loupe'), lc = loupe.getContext('2d');
+function showLoupe(sx, sy, n, l) {
+  loupe.hidden = false; $('mhint').hidden = true;
+  const uy = rot ? innerWidth - sx : sy, uh = rot ? innerWidth : innerHeight;
+  loupe.classList.toggle('low', uy < uh * 0.45);
+  const S = loupe.width, k = Math.max(view.s * 3, 1.5) * (S / 120), d = toDisp(n);
+  lc.setTransform(1, 0, 0, 1, 0, 0); lc.fillStyle = '#000'; lc.fillRect(0, 0, S, S);
+  lc.save(); lc.translate(S / 2, S / 2); lc.rotate(-rot * Math.PI / 180); lc.scale(k, k); lc.translate(-d.x, -d.y);
+  lc.imageSmoothingEnabled = false; lc.drawImage(cv, 0, 0);
+  const a = toDisp(l.a), b = toDisp(l.b);
+  lc.strokeStyle = l.cal ? '#22d3ee' : '#facc15'; lc.lineWidth = 2 * (S / 120) / k; lc.beginPath(); lc.moveTo(a.x, a.y); lc.lineTo(b.x, b.y); lc.stroke();
+  lc.restore();
+  const c = S / 2; lc.strokeStyle = '#ff3b30'; lc.lineWidth = 3; lc.beginPath();
+  for (const [x1, y1, x2, y2] of [[-26, 0, -8, 0], [8, 0, 26, 0], [0, -26, 0, -8], [0, 8, 0, 26]]) { lc.moveTo(c + x1, c + y1); lc.lineTo(c + x2, c + y2); }
+  lc.stroke();
+}
+function hideLoupe() { loupe.hidden = true; }
+let toastT = 0;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; $('mhint').hidden = true; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; updateMeasureUI(); }, 2600); }
+function updateMeasureUI() {
+  $('mbar').hidden = !base || !(measure || sel);
+  $('mDel').disabled = !sel; $('mScale').disabled = !sel;
+  $('mClear').hidden = !lines.length;
+  document.querySelectorAll('#mbar [data-u]').forEach(b => b.classList.toggle('on', b.dataset.u === unit));
+  $('mhint').hidden = !(base && measure && !lines.length) || !$('toast').hidden;
+  $('rulerBtn').classList.toggle('on', measure); $('rulerBtn').setAttribute('aria-pressed', measure);
+  $('mDone').textContent = measure ? 'Done' : 'Close';
+}
+$('rulerBtn').onclick = () => {
+  measure = !measure;
+  if (measure && !showLines) { showLines = true; saveSettings(); updateUI(); toast('Lines shown'); } if (!measure) sel = null; closeSheet(); updateMeasureUI(); drawLines(); };
+$('mDone').onclick = () => { measure = false; sel = null; updateMeasureUI(); drawLines(); };
+$('mDel').onclick = () => { if (!sel) return; lines = lines.filter(l => l.id !== sel); sel = null; saveLines(); updateMeasureUI(); drawLines(); };
+let clearArm = 0;
+function disarmClear() { clearArm = 0; $('mClear').textContent = 'Clear'; $('mClear').classList.remove('warn'); }
+$('mClear').onclick = () => {
+  if (clearArm) { lines = []; sel = null; saveLines(); disarmClear(); updateMeasureUI(); drawLines(); return; }
+  clearArm = setTimeout(disarmClear, 2500); $('mClear').textContent = 'Tap again'; $('mClear').classList.add('warn');
+};
+document.querySelectorAll('#mbar [data-u]').forEach(b => b.onclick = () => {
+  if (b.dataset.u === 'mm' && !mmPerPx) { toast('Select a line of known length, then tap Set scale'); return; }
+  unit = b.dataset.u; saveLines(); updateMeasureUI(); drawLines();
+});
+$('mScale').onclick = () => { if (!sel) return; $('dlgIn').value = ''; $('dlg').hidden = false; setTimeout(() => $('dlgIn').focus(), 60); };
+$('dlgCancel').onclick = () => { $('dlg').hidden = true; };
+$('dlgOk').onclick = () => {
+  const mm = parseFloat($('dlgIn').value), l = lines.find(x => x.id === sel);
+  if (!(mm > 0) || !l || !lenPx(l)) { $('dlgIn').focus(); return; }
+  mmPerPx = mm / lenPx(l); lines.forEach(x => x.cal = x === l); unit = 'mm';
+  $('dlg').hidden = true; saveLines(); updateMeasureUI(); drawLines();
+};
+$('dlgIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('dlgOk').click(); });
+// saved image: photo in its original orientation, optionally with the lines drawn on
+function exportCanvas() {
+  const c0 = turn(cv, (360 - rot) / 90);
+  if (!saveWithLines || !lines.length) return c0;
+  const c = document.createElement('canvas'); c.width = c0.width; c.height = c0.height;
+  const x = c.getContext('2d'); x.drawImage(c0, 0, 0);
+  const lw = Math.max(2, c.width / 400), fs = Math.max(14, Math.round(c.width / 45));
+  x.lineCap = 'round'; x.lineJoin = 'round'; x.font = `700 ${fs}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+  const seg = (ax, ay, bx, by) => { x.beginPath(); x.moveTo(ax, ay); x.lineTo(bx, by); x.stroke(); };
+  for (const l of lines) {
+    const ax = l.a.u * W0, ay = l.a.v * H0, bx = l.b.u * W0, by = l.b.v * H0, col = l.cal ? '#22d3ee' : '#facc15';
+    const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, t = lw * 3;
+    x.strokeStyle = 'rgba(0,0,0,.55)'; x.lineWidth = lw * 2.2; seg(ax, ay, bx, by);
+    x.strokeStyle = col; x.lineWidth = lw; seg(ax, ay, bx, by);
+    seg(ax - nx * t, ay - ny * t, ax + nx * t, ay + ny * t); seg(bx - nx * t, by - ny * t, bx + nx * t, by + ny * t);
+    const tx = (ax + bx) / 2 + nx * fs, ty = (ay + by) / 2 + ny * fs, txt = label(l);
+    x.lineWidth = fs / 4; x.strokeStyle = '#000'; x.strokeText(txt, tx, ty); x.fillStyle = '#fff'; x.fillText(txt, tx, ty);
+  }
+  return c;
+}
+$('ovLines').onclick = () => { saveWithLines = !saveWithLines; $('ovLines').textContent = 'Lines: ' + (saveWithLines ? 'on' : 'off'); $('ovImg').src = exportCanvas().toDataURL('image/png'); };
+
+/* ---------- visibility settings ---------- */
+function setLines(v) { showLines = v; if (!v) { sel = null; measure = false; } saveSettings(); updateUI(); updateMeasureUI(); drawLines(); }
+$('lnShow').onclick = () => setLines(true);
+$('lnHide').onclick = () => setLines(false);
+$('ovAlways').onclick = () => { autoHide = false; saveSettings(); updateUI(); wake(); };
+$('ovAuto').onclick = () => { autoHide = true; saveSettings(); updateUI(); wake(); };
+let idleT = 0;
+function busy() { return !base || sheet.classList.contains('open') || measure || sel || !$('dlg').hidden || !$('ov').hidden || showOrig || ptrs.size && drag?.type !== 'pan' && drag?.type !== 'pinch'; }
+function goIdle() { clearTimeout(idleT); if (!autoHide) return; if (busy()) { idleT = setTimeout(goIdle, 3000); return; } ui().classList.add('idle'); }
+function wake() { ui().classList.remove('idle'); clearTimeout(idleT); if (autoHide) idleT = setTimeout(goIdle, 3500); }
+// any touch on the buttons keeps them awake
+document.addEventListener('pointerdown', e => { if (e.target.closest && e.target.closest('#ui') && !ui().classList.contains('idle')) wake(); }, true);
+
 layoutUI();
 updateUI();
+updateMeasureUI();
 
 /* ---------- installable app: offline + "Share to Tones" ---------- */
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
